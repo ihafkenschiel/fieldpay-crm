@@ -2,6 +2,8 @@
 
 A production-quality reference application demonstrating **enterprise mobile architecture** patterns for React Native applications with Salesforce CRM integration and Stripe payment processing.
 
+![FieldPay demo walkthrough](./docs/FieldPay-Demo-Video.gif)
+
 ---
 
 ## Consulting Scenario
