@@ -30,69 +30,51 @@ Field sales representatives frequently work in warehouses, industrial facilities
 
 ### Layered Architecture Diagram
 
+```mermaid
+flowchart TB
+
+subgraph Client["Client Applications"]
+    IOS[iOS App]
+    AND[Android App]
+    WEB[Web App]
+end
+
+IOS --> RN
+AND --> RN
+WEB --> RN
+
+RN[Shared React Native Codebase]
+
+RN -->|HTTPS API| BFF
+
+subgraph Backend["Backend for Frontend (Fastify)"]
+    BFF
+end
+
+BFF --> Salesforce[Salesforce API]
+BFF --> Stripe[Stripe API]
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            CLIENT LAYER                                  │
-│                                                                          │
-│   ┌───────────────┐    ┌───────────────┐    ┌───────────────┐           │
-│   │      iOS      │    │    Android    │    │      Web      │           │
-│   │  (Expo Native)│    │  (Expo Native)│    │  (Expo Web)   │           │
-│   └───────┬───────┘    └───────┬───────┘    └───────┬───────┘           │
-│           │                    │                    │                    │
-│   ┌───────┴────────────────────┴────────────────────┴───────┐           │
-│   │                    Shared Codebase                       │           │
-│   │                                                          │           │
-│   │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │           │
-│   │  │ @fieldpay/ui │  │@fieldpay/core│  │@fieldpay/    │   │           │
-│   │  │  Components  │  │Domain Models │  │ api-client   │   │           │
-│   │  └──────────────┘  └──────────────┘  └──────────────┘   │           │
-│   │                                                          │           │
-│   │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │           │
-│   │  │ Zustand      │  │ React Query  │  │ Offline      │   │           │
-│   │  │ (Auth/Queue) │  │ (Server Data)│  │ Queue Store  │   │           │
-│   │  └──────────────┘  └──────────────┘  └──────────────┘   │           │
-│   └─────────────────────────┬────────────────────────────────┘           │
-└─────────────────────────────┼────────────────────────────────────────────┘
-                              │
-                              │ HTTPS (TLS 1.2+)
-                              ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                     BACKEND-FOR-FRONTEND LAYER                           │
-│                                                                          │
-│   ┌─────────────────────────────────────────────────────────────────┐   │
-│   │                      Fastify HTTP Server                         │   │
-│   │                                                                  │   │
-│   │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐ │   │
-│   │  │ /auth/*    │  │/salesforce │  │ /stripe/*  │  │ /sync/*    │ │   │
-│   │  │ Login      │  │ /accounts  │  │ Payment    │  │ Offline    │ │   │
-│   │  │ Refresh    │  │ /contacts  │  │ Intent     │  │ Replay     │ │   │
-│   │  │ Logout     │  │ /invoices  │  │ Webhook    │  │            │ │   │
-│   │  └────────────┘  └────────────┘  └────────────┘  └────────────┘ │   │
-│   │                                                                  │   │
-│   │  ┌──────────────────────────────────────────────────────────┐   │   │
-│   │  │                    Service Layer                          │   │   │
-│   │  │  AuthService    SalesforceService    StripeService        │   │   │
-│   │  │  (OAuth/JWT)    (CRM Operations)     (Payments)           │   │   │
-│   │  └──────────────────────────────────────────────────────────┘   │   │
-│   │                                                                  │   │
-│   │  ┌──────────────────────────────────────────────────────────┐   │   │
-│   │  │              Middleware: Auth Guard, Error Handler        │   │   │
-│   │  └──────────────────────────────────────────────────────────┘   │   │
-│   └─────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────┬───────────────────────────────────────────┘
-                              │
-              ┌───────────────┴───────────────┐
-              ▼                               ▼
-┌─────────────────────────┐     ┌─────────────────────────┐
-│  EXTERNAL INTEGRATIONS  │     │  EXTERNAL INTEGRATIONS  │
-│                         │     │                         │
-│      Salesforce         │     │        Stripe           │
-│      REST API           │     │         API             │
-│                         │     │                         │
-│  • Account records      │     │  • PaymentIntent        │
-│  • Contact records      │     │  • Webhook events       │
-│  • Custom Invoice obj   │     │  • Charge confirmation  │
-└─────────────────────────┘     └─────────────────────────┘
+
+```mermaid
+flowchart TB
+
+subgraph ReactNativeApp["React Native Application"]
+    UI[UI Components]
+    CORE[Domain Models]
+    API[API Client]
+
+    STATE[Zustand State]
+    CACHE[React Query Cache]
+    QUEUE[Offline Queue]
+
+    UI --> CORE
+    CORE --> API
+
+    API --> CACHE
+    API --> STATE
+
+    STATE --> QUEUE
+end
 ```
 
 ---
@@ -137,6 +119,32 @@ Field sales representatives frequently work in warehouses, industrial facilities
 12. Client receives confirmation and refreshes invoice data
 
 ### 4. Offline Synchronization Flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  %% Offline Synchronization Flow (Action Replay)
+
+  participant NetInfo as NetInfo
+  participant Client
+  participant Queue as Offline Queue Store
+  participant BFF
+  participant Sync as /sync/actions
+  participant SF as Salesforce REST API
+
+  NetInfo-->>Client: Offline detected
+  Note over Client: User performs write action offline
+  Client->>Queue: Enqueue QueuedAction(status=pending)
+
+  NetInfo-->>Client: Online detected
+  Client->>Sync: POST /sync/actions (pending actions)
+  Sync->>BFF: Process actions sequentially
+  BFF->>SF: Execute action(s)\n(create invoice, etc.)
+  SF-->>BFF: Result(s)
+  BFF-->>Client: { succeeded:[], failed:[] }
+  Client->>Queue: Remove succeeded\nIncrement retry for failed
+  Note over Client: Max retries → mark failed\n(show manual review)
+```
 
 1. Client detects network offline via NetInfo
 2. User performs write operation (e.g., create invoice)
@@ -227,40 +235,76 @@ Single Expo codebase serves iOS, Android, and Web:
 
 ### Authentication Flow
 
+```mermaid
+sequenceDiagram
+  autonumber
+  %% Authentication Flow
+
+  actor User
+  participant Client
+  participant BFF
+  participant SF_OAuth as Salesforce OAuth
+  participant Store as Secure Storage
+
+  User->>Client: Enter credentials
+  Client->>BFF: POST /auth/login
+  BFF->>SF_OAuth: Validate credentials (OAuth)
+  SF_OAuth-->>BFF: OAuth success
+  BFF-->>Client: access_token + refresh_token (JWT)
+  Client->>Store: Persist tokens (SecureStore/localStorage)
+  Client->>BFF: Subsequent API calls\nAuthorization: Bearer <token>
+
+  Note over Client,BFF: Refresh on expiry
+  Client->>BFF: POST /auth/refresh
+  BFF-->>Client: new access_token
+  Client->>Store: Update access_token
 ```
-┌────────┐     ┌─────────┐     ┌─────────┐     ┌────────────┐
-│ Client │────▶│   BFF   │────▶│  Auth   │────▶│ Salesforce │
-│        │◀────│         │◀────│ Service │◀────│   OAuth    │
-└────────┘     └─────────┘     └─────────┘     └────────────┘
-     │
-     ▼
-┌────────────┐
-│ SecureStore │
-└────────────┘
+
+### Invoice Creation Flow
+
+```mermaid
+sequenceDiagram
+  autonumber
+  %% Invoice Creation Flow
+
+  actor User
+  participant Client
+  participant BFF
+  participant Salesforce as Salesforce REST API
+
+  User->>Client: Create Invoice (amount, description)
+  Client->>BFF: POST /salesforce/invoices
+  BFF->>Salesforce: Create invoice record
+  Salesforce-->>BFF: invoiceId + timestamps
+  BFF-->>Client: Invoice object
+  Note over Client: React Query invalidate/refetch\nInvoice appears in UI
 ```
 
 ### Payment Flow
 
-```
-┌────────┐  1. Create Invoice   ┌─────────┐
-│ Client │─────────────────────▶│   BFF   │
-│        │◀─────────────────────│         │
-└────────┘  Invoice Created     └─────────┘
-     │
-     │ 2. Create PaymentIntent
-     ▼
-┌────────┐                      ┌─────────┐     ┌────────┐
-│ Client │─────────────────────▶│   BFF   │────▶│ Stripe │
-│        │◀─────────────────────│         │◀────│        │
-└────────┘  clientSecret        └─────────┘     └────────┘
-     │
-     │ 3. Collect Payment (Stripe SDK)
-     │ 4. Confirm via Webhook
-     ▼
-┌────────┐                      ┌─────────┐
-│ Client │◀─────────────────────│   BFF   │
-│        │  Invoice Updated     │         │
-└────────┘  (status: paid)      └─────────┘
+```mermaid
+sequenceDiagram
+  autonumber
+  %% Payment Processing Flow (Stripe PaymentIntent + Webhook)
+
+  actor User
+  participant Client
+  participant BFF
+  participant Stripe as Stripe API
+  participant SF as Salesforce REST API
+
+  User->>Client: Tap "Accept Payment"
+  Client->>BFF: POST /stripe/payment-intent\n(invoiceId, amount)
+  BFF->>Stripe: Create PaymentIntent
+  Stripe-->>BFF: PaymentIntent(client_secret)
+  BFF-->>Client: client_secret
+  Client->>Stripe: Present Payment Sheet\n(confirm with client_secret)
+  Stripe-->>BFF: POST /stripe/webhook\n(payment_succeeded)
+  Note over BFF: Verify webhook signature (prod)
+  BFF->>SF: Update invoice status = paid
+  SF-->>BFF: OK
+  BFF-->>Client: (optional) notify / client refetches
+  Note over Client: React Query refetch invoice\nStatus shows "paid"
 ```
 
 ## Security Considerations
@@ -414,50 +458,29 @@ Toggle via `SALESFORCE_MODE=mock` and `STRIPE_MODE=mock` environment variables.
 
 ### Deployment Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         CLIENTS                                  │
-│                                                                  │
-│   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐           │
-│   │  iOS App    │   │ Android App │   │  Web App    │           │
-│   │ (App Store) │   │(Play Store) │   │   (CDN)     │           │
-│   └──────┬──────┘   └──────┬──────┘   └──────┬──────┘           │
-└──────────┼─────────────────┼─────────────────┼──────────────────┘
-           │                 │                 │
-           └────────────────┬┴─────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      CDN / EDGE LAYER                            │
-│                                                                  │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  Cloudflare / AWS CloudFront / Vercel Edge              │   │
-│   │  • Static asset caching                                  │   │
-│   │  • DDoS protection                                       │   │
-│   │  • SSL termination                                       │   │
-│   └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    BACKEND API LAYER                             │
-│                                                                  │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  BFF Server (Fastify)                                    │   │
-│   │  • Railway / Render / Fly.io / AWS ECS                   │   │
-│   │  • Auto-scaling based on request volume                  │   │
-│   │  • Health checks and automatic restarts                  │   │
-│   └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │
-              ┌───────────────┴───────────────┐
-              ▼                               ▼
-┌─────────────────────────┐     ┌─────────────────────────┐
-│   EXTERNAL SERVICES     │     │   EXTERNAL SERVICES     │
-│                         │     │                         │
-│   Salesforce            │     │   Stripe                │
-│   (Managed SaaS)        │     │   (Managed SaaS)        │
-└─────────────────────────┘     └─────────────────────────┘
+```mermaid
+flowchart TB
+  subgraph Clients["Clients"]
+    IOS[iOS App]
+    AND[Android App]
+    WEB[Web App]
+  end
+
+  Edge[Edge / CDN]
+  BFF["BFF API (Fastify)"]
+  subgraph External["External Services"]
+    SF[Salesforce]
+    STR[Stripe]
+  end
+
+  IOS -->|HTTPS| Edge
+  AND -->|HTTPS| Edge
+  WEB -->|HTTPS| Edge
+
+  Edge -->|HTTPS| BFF
+  BFF --> SF
+  BFF --> STR
+  STR -->|Webhooks| BFF
 ```
 
 ### Environment Configuration

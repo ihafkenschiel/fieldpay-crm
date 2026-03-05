@@ -36,38 +36,29 @@ The architecture addresses these requirements with:
 
 ## Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            CLIENT LAYER                                  │
-│                                                                          │
-│   ┌───────────────┐    ┌───────────────┐    ┌───────────────┐           │
-│   │      iOS      │    │    Android    │    │      Web      │           │
-│   └───────┬───────┘    └───────┬───────┘    └───────┬───────┘           │
-│           └────────────────────┼────────────────────┘                    │
-│                                │                                         │
-│                    ┌───────────┴───────────┐                            │
-│                    │   Shared Codebase     │                            │
-│                    │   (React Native)      │                            │
-│                    └───────────┬───────────┘                            │
-└────────────────────────────────┼────────────────────────────────────────┘
-                                 │ HTTPS
-                                 ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                     BACKEND-FOR-FRONTEND                                │
-│                                                                         │
-│                    ┌───────────────────────┐                           │
-│                    │   Fastify Server      │                           │
-│                    │   /auth  /salesforce  │                           │
-│                    │   /stripe  /sync      │                           │
-│                    └───────────┬───────────┘                           │
-└────────────────────────────────┼───────────────────────────────────────┘
-                                 │
-                 ┌───────────────┴───────────────┐
-                 ▼                               ▼
-        ┌─────────────────┐             ┌─────────────────┐
-        │   Salesforce    │             │     Stripe      │
-        │   REST API      │             │      API        │
-        └─────────────────┘             └─────────────────┘
+```mermaid
+flowchart TB
+
+subgraph Client_Layer["Client Layer"]
+    IOS[iOS App]
+    ANDROID[Android App]
+    WEB[Web App]
+
+    RN[Shared React Native Codebase]
+
+    IOS --> RN
+    ANDROID --> RN
+    WEB --> RN
+end
+
+RN -->|HTTPS| BFF
+
+subgraph Backend["Backend-for-Frontend"]
+    BFF[Fastify Server\n/auth\n/salesforce\n/stripe\n/sync]
+end
+
+BFF --> Salesforce[Salesforce REST API]
+BFF --> Stripe[Stripe API]
 ```
 
 ---

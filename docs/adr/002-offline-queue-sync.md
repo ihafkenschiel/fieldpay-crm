@@ -84,30 +84,24 @@ type QueuedActionType = 'create_invoice' | 'update_invoice' | 'sync_payment';
 
 ### Sync Flow
 
-```
-┌─────────────┐     Network      ┌─────────────┐
-│   Client    │    Restored      │   Client    │
-│  (Offline)  │ ───────────────▶ │  (Online)   │
-└─────────────┘                  └──────┬──────┘
-      │                                 │
-      │ Queue Action                    │ Trigger Sync
-      ▼                                 ▼
-┌─────────────┐                  ┌─────────────┐
-│ QueueStore  │                  │ SyncService │
-│ (Zustand)   │                  │             │
-└─────────────┘                  └──────┬──────┘
-                                        │
-                                        │ POST /sync/actions
-                                        ▼
-                                 ┌─────────────┐
-                                 │     BFF     │
-                                 └──────┬──────┘
-                                        │
-                                        │ Process Each Action
-                                        ▼
-                                 ┌─────────────┐
-                                 │  Salesforce │
-                                 └─────────────┘
+```mermaid
+flowchart TB
+  subgraph Offline
+    C1["Client (Offline)"]
+    Q["QueueStore (Zustand)"]
+    C1 -->|Queue Action| Q
+  end
+
+  subgraph Online
+    C2["Client (Online)"]
+    S[SyncService]
+    C2 -->|Trigger Sync| S
+  end
+
+  S -->|POST /sync/actions| BFF[BFF Server]
+  BFF -->|Process Each Action| SF[Salesforce API]
+
+  C1 -->|Network Restored| C2
 ```
 
 ### Components
