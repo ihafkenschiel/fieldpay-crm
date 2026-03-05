@@ -159,9 +159,36 @@ Password: demo123
 - TypeScript
 - Mock Salesforce/Stripe services
 
+## Development Workflow
+
+### Quality Gates
+
+This project uses multiple quality gates to prevent runtime errors:
+
+```bash
+# Type check all TypeScript
+npm run typecheck
+
+# Lint all code
+npm run lint
+
+# Run tests
+npm test
+
+# Run all validations before committing
+npm run validate
+```
+
+**Pre-commit hooks** automatically run type checking and linting on staged files.
+
+See [Development Guide](./docs/DEVELOPMENT.md) for detailed workflow.
+
+---
+
 ## Documentation
 
 - [Architecture Overview](./docs/architecture.md)
+- [Development Guide](./docs/DEVELOPMENT.md)
 - [ADR-001: Backend For Frontend Pattern](./docs/adr/001-backend-for-frontend.md)
 - [ADR-002: Offline Queue Synchronization](./docs/adr/002-offline-queue-sync.md)
 
