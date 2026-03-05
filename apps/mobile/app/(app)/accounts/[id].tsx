@@ -8,9 +8,10 @@ import { formatCurrency } from '@fieldpay/core';
 
 export default function AccountDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: account } = useAccount(id);
-  const { data: contacts } = useContacts(id);
-  const { data: invoices } = useInvoices(id);
+  const accountId = id as string;
+  const { data: account } = useAccount(accountId);
+  const { data: contacts } = useContacts(accountId);
+  const { data: invoices } = useInvoices(accountId);
 
   if (!account) {
     return null;
