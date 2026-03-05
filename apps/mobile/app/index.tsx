@@ -5,20 +5,7 @@ import { useAuthStore } from '../src/stores/auth.store';
 import { colors } from '@fieldpay/ui';
 
 export default function Index() {
-  const { isLoading, isAuthenticated } = useAuthStore();
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (isAuthenticated) {
-    return <Redirect href="/(app)/accounts" />;
-  }
-
+  // Temporarily bypass loading to test if app loads
   return <Redirect href="/(auth)/login" />;
 }
 

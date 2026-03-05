@@ -27,13 +27,58 @@ Implement an **offline-first architecture** with a local action queue and automa
 ```typescript
 interface QueuedAction {
   id: string;
-  type: 'create_invoice' | 'update_invoice' | 'sync_payment';
+  type: QueuedActionType;
   payload: Record<string, unknown>;
   status: 'pending' | 'processing' | 'failed';
   attempts: number;
-  maxAttempts: number;  // default: 3
+  maxAttempts: number;
   lastError?: string;
   createdAt: string;
+}
+
+type QueuedActionType = 'create_invoice' | 'update_invoice' | 'sync_payment';
+```
+
+### QueuedAction Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | UUID generated client-side when action is queued |
+| `type` | `QueuedActionType` | Discriminator for action processing on server |
+| `payload` | `Record<string, unknown>` | Action-specific data (e.g., invoice fields) |
+| `status` | `enum` | Current state: `pending` (awaiting sync), `processing` (sync in progress), `failed` (exceeded max retries) |
+| `attempts` | `number` | Number of sync attempts made; starts at 0 |
+| `maxAttempts` | `number` | Maximum retries before marking failed; default 3 |
+| `lastError` | `string?` | Error message from most recent failed attempt |
+| `createdAt` | `string` | ISO 8601 timestamp when action was queued |
+
+### Action Type Payloads
+
+**`create_invoice`**:
+```typescript
+{
+  accountId: string;
+  amount: number;
+  currency: string;
+  description?: string;
+}
+```
+
+**`update_invoice`**:
+```typescript
+{
+  invoiceId: string;
+  status?: InvoiceStatus;
+  stripePaymentIntentId?: string;
+}
+```
+
+**`sync_payment`**:
+```typescript
+{
+  invoiceId: string;
+  paymentIntentId: string;
+  chargeId: string;
 }
 ```
 
@@ -191,9 +236,115 @@ for (const failure of result.failed) {
 }
 ```
 
+---
+
+## Conflict Resolution Strategy
+
+Offline synchronization introduces the possibility of conflicts when client state differs from server state. This section documents the conflict resolution approach.
+
+### Conflict Scenarios
+
+| Scenario | Example | Resolution |
+|----------|---------|------------|
+| Create collision | Two clients create invoices with same temporary ID | Server assigns unique IDs; no conflict |
+| Update collision | Client updates invoice while offline; another user updates same invoice | Server wins (last-write-wins) |
+| Delete collision | Client updates invoice that was deleted on server | Server wins; action fails with "not found" |
+| Stale reference | Client references account that was deleted | Action fails; logged for manual review |
+
+### Resolution Rules
+
+1. **Server wins for immutable data**: Account and contact records are read-only from the mobile client. Server state is always authoritative.
+
+2. **Client wins for newly created objects**: Invoices created offline are treated as new records. The server assigns the canonical ID on sync.
+
+3. **Last-write-wins for updates**: If multiple clients update the same invoice, the last sync to reach the server wins. This is acceptable because:
+   - Field sales workflows rarely involve concurrent edits to the same invoice
+   - Invoices progress through a linear lifecycle (draft → pending → paid)
+
+4. **Conflicts logged for manual reconciliation**: When an action fails due to a conflict, the error is logged with full context:
+   ```typescript
+   {
+     actionId: string;
+     actionType: string;
+     error: string;
+     serverState?: Record<string, unknown>;
+     clientState: Record<string, unknown>;
+     timestamp: string;
+   }
+   ```
+
+### User Notification
+
+- Failed actions appear in the Diagnostics screen with error details
+- Users can manually review and retry or discard failed actions
+- Critical conflicts (e.g., payment sync failures) should trigger push notifications in production
+
+---
+
+## Failure Handling
+
+### Retry Strategy
+
+The sync engine implements exponential backoff with jitter to handle transient failures:
+
+| Attempt | Base Delay | With Jitter |
+|---------|------------|-------------|
+| 1 | Immediate | 0ms |
+| 2 | 1 second | 500-1500ms |
+| 3 | 2 seconds | 1000-3000ms |
+
+**Note**: Current implementation uses immediate retry. Exponential backoff is recommended for production.
+
+### Max Retry Attempts
+
+- **Default**: 3 attempts per action
+- **Configurable**: Via `DEFAULT_MAX_ATTEMPTS` constant in `@fieldpay/core`
+- **Rationale**: 3 attempts balances persistence with avoiding infinite loops on permanent failures
+
+### Failure Classification
+
+| Error Type | Retryable | Action |
+|------------|-----------|--------|
+| Network timeout | Yes | Retry with backoff |
+| 5xx server error | Yes | Retry with backoff |
+| 4xx client error | No | Mark failed immediately |
+| 401 Unauthorized | No | Trigger re-authentication |
+| 404 Not Found | No | Mark failed; resource deleted |
+| 409 Conflict | No | Mark failed; log for review |
+
+### Permanent Failure Handling
+
+When an action exceeds max retries:
+
+1. Action status set to `failed`
+2. `lastError` populated with error message
+3. Action remains in queue for user review
+4. `sync_failed` diagnostic event emitted
+5. User sees failed action count in Diagnostics screen
+
+### User Notification for Permanent Failures
+
+In production, permanent sync failures should notify users:
+
+- **In-app**: Badge on Diagnostics tab showing failed count
+- **Push notification**: "X actions failed to sync. Please review."
+- **Email**: Daily digest of failed actions (for critical workflows)
+
+### Manual Recovery Options
+
+Users can take the following actions on failed items:
+
+1. **Retry**: Reset attempts to 0 and re-queue for next sync
+2. **Discard**: Remove action from queue (data loss accepted)
+3. **Edit**: Modify payload and retry (future enhancement)
+
+---
+
 ## Future Enhancements
 
 1. **Persistent queue**: Save to SQLite for app restart durability
-2. **Background sync**: Use native background task APIs
-3. **Conflict resolution**: Implement last-write-wins or merge strategies
+2. **Background sync**: Use native background task APIs (iOS BackgroundTasks, Android WorkManager)
+3. **Exponential backoff**: Implement proper retry delays with jitter
 4. **Offline reads**: Cache frequently accessed data locally
+5. **Conflict UI**: Dedicated screen for reviewing and resolving conflicts
+6. **Sync progress**: Show progress indicator during multi-action sync

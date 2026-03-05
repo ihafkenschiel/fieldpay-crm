@@ -1,0 +1,21 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@fieldpay/core": ["./src/core"],
+      "@fieldpay/core/*": ["./src/core/*"],
+      "@fieldpay/ui": ["./src/ui"],
+      "@fieldpay/ui/*": ["./src/ui/*"],
+      "@fieldpay/api-client": ["./src/api"],
+      "@fieldpay/api-client/*": ["./src/api/*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}
