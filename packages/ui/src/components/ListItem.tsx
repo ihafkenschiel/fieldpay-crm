@@ -17,25 +17,39 @@ interface ListItemProps {
 }
 
 export function ListItem({ title, subtitle, right, onPress }: ListItemProps) {
-  const Container = onPress ? TouchableOpacity : View;
-  return (
-    <Container
-      style={styles.container}
-      onPress={onPress}
-      activeOpacity={onPress ? 0.6 : 1}
-    >
-      <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
+  const content = (
+    <View style={styles.content}>
+      <Text style={styles.title} numberOfLines={1}>
+        {title}
+      </Text>
+      {subtitle && (
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {subtitle}
         </Text>
-        {subtitle && (
-          <Text style={styles.subtitle} numberOfLines={1}>
-            {subtitle}
-          </Text>
-        )}
-      </View>
-      {right && <View style={styles.right}>{right}</View>}
-    </Container>
+      )}
+    </View>
+  );
+
+  const rightContent = right && <View style={styles.right}>{right}</View>;
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={styles.container}
+        onPress={onPress}
+        activeOpacity={0.6}
+      >
+        {content}
+        {rightContent}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {content}
+      {rightContent}
+    </View>
   );
 }
 
