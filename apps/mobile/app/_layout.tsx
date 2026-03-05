@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryProvider } from '../src/providers/QueryProvider';
 import { useAuthStore } from '../src/stores/auth.store';
 import { useNetworkStatus } from '../src/hooks/useNetworkStatus';
+import { useAutoSync } from '../src/hooks/useSync';
 import { colors } from '@fieldpay/ui';
 
 export default function RootLayout() {
@@ -14,6 +15,7 @@ export default function RootLayout() {
   }, [loadStoredAuth]);
 
   useNetworkStatus();
+  useAutoSync();
 
   return (
     <QueryProvider>
