@@ -1,0 +1,20 @@
+{
+  "name": "fieldpay-crm",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "server"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=server",
+    "dev:mobile": "npm run dev --workspace=apps/mobile",
+    "build:server": "npm run build --workspace=server",
+    "build:packages": "npm run build --workspace=packages/core && npm run build --workspace=packages/ui && npm run build --workspace=packages/api-client",
+    "lint": "eslint . --ext .ts,.tsx",
+    "clean": "rm -rf node_modules packages/*/dist server/dist apps/*/node_modules"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
