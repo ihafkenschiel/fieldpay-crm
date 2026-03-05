@@ -1,11 +1,23 @@
-import { useEffect } from 'react';
 import { Redirect } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuthStore } from '../src/stores/auth.store';
 import { colors } from '@fieldpay/ui';
 
 export default function Index() {
-  // Temporarily bypass loading to test if app loads
+  const { isLoading, isAuthenticated } = useAuthStore();
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Redirect href="/(app)/accounts" />;
+  }
+
   return <Redirect href="/(auth)/login" />;
 }
 
