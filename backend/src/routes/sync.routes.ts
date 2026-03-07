@@ -3,7 +3,7 @@ import type { QueuedAction } from '@fieldpay/core';
 import { SalesforceService } from '../services/salesforce.service.js';
 import { authGuard } from '../middleware/auth.guard.js';
 
-const sfService = new SalesforceService();
+const sfService = SalesforceService;
 
 export async function syncRoutes(app: FastifyInstance) {
   app.addHook('preHandler', authGuard);

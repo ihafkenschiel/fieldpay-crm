@@ -7,7 +7,7 @@ import { mockAccounts, mockContacts, mockInvoices } from '../data/mock-data.js';
  * Implements the same interface a live Salesforce REST API adapter would.
  * In production, swap this with a real JSforce or REST-based implementation.
  */
-export class SalesforceService {
+class SalesforceServiceImpl {
   // In-memory mutable copies for the demo session
   private accounts: Account[] = [...mockAccounts];
   private contacts: Contact[] = [...mockContacts];
@@ -68,3 +68,7 @@ export class SalesforceService {
     return this.invoices[idx];
   }
 }
+
+// Export singleton instance so all routes share the same in-memory data
+export const SalesforceService = new SalesforceServiceImpl();
+export type { SalesforceServiceImpl };

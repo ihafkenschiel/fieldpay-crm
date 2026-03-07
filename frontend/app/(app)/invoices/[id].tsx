@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Button, Card, StatusBadge, ScreenContainer, colors, spacing, fontSize } from '@fieldpay/ui';
-import { useInvoices } from '../../../src/hooks/useInvoices';
+import { useInvoice } from '../../../src/hooks/useInvoices';
 import { useCreatePaymentIntent, useConfirmPayment } from '../../../src/hooks/usePayment';
 import { formatCurrency, formatDateTime } from '@fieldpay/core';
 import type { InvoiceStatus } from '@fieldpay/core';
@@ -16,8 +16,7 @@ const statusVariant: Record<InvoiceStatus, 'success' | 'warning' | 'danger' | 'n
 
 export default function InvoiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: invoices } = useInvoices();
-  const invoice = invoices?.find((i) => i.id === id);
+  const { data: invoice } = useInvoice(id);
 
   const [paymentStep, setPaymentStep] = useState<'idle' | 'processing' | 'confirming'>('idle');
 
@@ -25,37 +24,52 @@ export default function InvoiceDetailScreen() {
   const confirmPayment = useConfirmPayment();
 
   const handlePayment = async () => {
-    if (!invoice) return;
+    console.log('[InvoiceDetail] handlePayment called, invoice:', invoice);
+    if (!invoice) {
+      console.log('[InvoiceDetail] No invoice, returning early');
+      return;
+    }
 
     setPaymentStep('processing');
+    console.log('[InvoiceDetail] Step: processing');
 
     try {
       // Step 1: Create PaymentIntent
+      console.log('[InvoiceDetail] Creating payment intent...');
       const paymentIntent = await createPaymentIntent.mutateAsync({
         invoiceId: invoice.id,
         amount: invoice.amount,
         currency: invoice.currency,
       });
+      console.log('[InvoiceDetail] Payment intent created:', paymentIntent);
 
       setPaymentStep('confirming');
+      console.log('[InvoiceDetail] Step: confirming');
 
       // Step 2: In a real app, this would open Stripe's payment sheet
       // For mock mode, we simulate the confirmation
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       // Step 3: Confirm payment via webhook simulation
-      await confirmPayment.mutateAsync({
+      console.log('[InvoiceDetail] Confirming payment via webhook...');
+      const confirmResult = await confirmPayment.mutateAsync({
         paymentIntentId: paymentIntent.paymentIntentId,
         invoiceId: invoice.id,
+        accountId: invoice.accountId,
       });
+      console.log('[InvoiceDetail] Payment confirmed:', confirmResult);
 
       Alert.alert('Success', 'Payment completed successfully!');
     } catch (err) {
+      console.error('[InvoiceDetail] Payment error:', err);
       Alert.alert('Error', err instanceof Error ? err.message : 'Payment failed');
     } finally {
+      console.log('[InvoiceDetail] Resetting to idle');
       setPaymentStep('idle');
     }
   };
+
+  console.log('[InvoiceDetail] Render - invoice:', invoice?.id, 'status:', invoice?.status, 'paymentStep:', paymentStep);
 
   if (!invoice) {
     return null;
@@ -63,6 +77,7 @@ export default function InvoiceDetailScreen() {
 
   const canPay = invoice.status === 'draft' || invoice.status === 'pending';
   const isProcessing = paymentStep !== 'idle';
+  console.log('[InvoiceDetail] canPay:', canPay, 'isProcessing:', isProcessing);
 
   return (
     <ScreenContainer>
