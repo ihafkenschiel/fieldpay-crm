@@ -3,7 +3,7 @@ import type { CreateInvoiceInput } from '@fieldpay/core';
 import { SalesforceService } from '../services/salesforce.service.js';
 import { authGuard } from '../middleware/auth.guard.js';
 
-const sfService = new SalesforceService();
+const sfService = SalesforceService;
 
 export async function salesforceRoutes(app: FastifyInstance) {
   // All Salesforce routes require authentication

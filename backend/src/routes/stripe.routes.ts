@@ -4,7 +4,7 @@ import { SalesforceService } from '../services/salesforce.service.js';
 import { authGuard } from '../middleware/auth.guard.js';
 
 const stripeService = new StripeService();
-const sfService = new SalesforceService();
+const sfService = SalesforceService;
 
 export async function stripeRoutes(app: FastifyInstance) {
   // Payment intent creation requires auth
